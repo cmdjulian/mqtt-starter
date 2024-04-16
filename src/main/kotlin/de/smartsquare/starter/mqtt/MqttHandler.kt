@@ -91,6 +91,7 @@ class MqttHandler(
             ?: subscriber.method.parameterTypes.toList()
         val delegate = if (kFunction?.isSuspend == true) {
             AnnotatedMethodDelegate { args ->
+                // TODO: exception handling
                 CoroutineScope(Dispatchers.Default)
                     .launch(MDCContext()) { kFunction.callSuspend(subscriber.bean, *args) }
                     .asCompletableFuture()
