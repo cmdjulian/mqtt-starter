@@ -4,7 +4,11 @@ import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.hivemq.client.mqtt.datatypes.MqttTopic
 import de.smartsquare.starter.mqtt.MqttHandler.AnnotatedMethodDelegate
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.future.asCompletableFuture
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.slf4j.MDCContext
 import org.slf4j.LoggerFactory
 import java.lang.invoke.MethodHandles
 import java.util.concurrent.ConcurrentHashMap
@@ -86,7 +90,12 @@ class MqttHandler(
         val parameterTypes = kFunction?.valueParameters?.map { it.type.jvmErasure.java }
             ?: subscriber.method.parameterTypes.toList()
         val delegate = if (kFunction?.isSuspend == true) {
-            AnnotatedMethodDelegate { args -> runBlocking { kFunction.callSuspend(subscriber.bean, *args) } }
+            AnnotatedMethodDelegate { args ->
+                CoroutineScope(Dispatchers.Default)
+                    .launch(MDCContext()) { kFunction.callSuspend(subscriber.bean, *args) }
+                    .asCompletableFuture()
+                    .join()
+            }
         } else {
             val handle = MethodHandles.publicLookup().unreflect(subscriber.method)
             AnnotatedMethodDelegate { args -> handle.invokeWithArguments(subscriber.bean, *args) }
