@@ -129,6 +129,10 @@ class MqttAutoConfiguration {
 
     @Bean
     @ConditionalOnMissingBean
+    fun suspendFunctionInvocationAdapter(): SuspendFunctionInvocationAdapter = SuspendFunctionInvocationAdapter.sync()
+
+    @Bean
+    @ConditionalOnMissingBean
     fun mqttMessageAdapter(objectMapper: ObjectMapper): MqttMessageAdapter = DefaultMqttMessageAdapter(objectMapper)
 
     /**
@@ -143,7 +147,8 @@ class MqttAutoConfiguration {
         collector: MqttSubscriberCollector,
         adapter: MqttMessageAdapter,
         messageErrorHandler: MqttMessageErrorHandler,
-    ): MqttHandler = MqttHandler(collector, adapter, messageErrorHandler)
+        suspendFunctionInvocationAdapter: SuspendFunctionInvocationAdapter,
+    ): MqttHandler = MqttHandler(collector, adapter, messageErrorHandler, suspendFunctionInvocationAdapter)
 
     /**
      * Returns a default mqtt message error handler.

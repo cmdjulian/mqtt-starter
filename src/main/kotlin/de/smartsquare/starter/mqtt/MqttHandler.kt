@@ -8,10 +8,13 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.future.asCompletableFuture
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.slf4j.MDCContext
 import org.slf4j.LoggerFactory
 import java.lang.invoke.MethodHandles
+import java.util.concurrent.CancellationException
+import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ConcurrentHashMap
+import java.util.concurrent.ExecutionException
+import kotlin.reflect.KFunction
 import kotlin.reflect.full.callSuspend
 import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.jvmErasure
@@ -24,6 +27,7 @@ class MqttHandler(
     private val collector: MqttSubscriberCollector,
     private val adapter: MqttMessageAdapter,
     private val messageErrorHandler: MqttMessageErrorHandler,
+    private val suspendFunctionInvocationAdapter: SuspendFunctionInvocationAdapter,
 ) {
 
     private val logger = LoggerFactory.getLogger(this::class.java)
@@ -91,11 +95,13 @@ class MqttHandler(
             ?: subscriber.method.parameterTypes.toList()
         val delegate = if (kFunction?.isSuspend == true) {
             AnnotatedMethodDelegate { args ->
-                // TODO: exception handling
-                CoroutineScope(Dispatchers.Default)
-                    .launch(MDCContext()) { kFunction.callSuspend(subscriber.bean, *args) }
-                    .asCompletableFuture()
-                    .join()
+                try {
+                    suspendFunctionInvocationAdapter.callSuspend(kFunction, subscriber.bean, *args).get()
+                } catch (e: ExecutionException) {
+                    throw e.cause ?: e
+                } catch (e: CancellationException) {
+                    Unit
+                }
             }
         } else {
             val handle = MethodHandles.publicLookup().unreflect(subscriber.method)
@@ -104,4 +110,27 @@ class MqttHandler(
 
         MqttSubscriberReference(delegate, parameterTypes)
     }
+}
+
+fun interface SuspendFunctionInvocationAdapter {
+    companion object {
+        fun async() = SuspendFunctionInvocationAdapter { kFunction, subscriber, args ->
+            CoroutineScope(Dispatchers.Default).launch { kFunction.callSuspend(subscriber, *args) }
+            CompletableFuture.completedFuture(Unit)
+        }
+
+        fun blocking() = SuspendFunctionInvocationAdapter { kFunction, subscriber, args ->
+            CoroutineScope(Dispatchers.Unconfined)
+                .launch { kFunction.callSuspend(subscriber, *args) }
+                .asCompletableFuture()
+        }
+
+        fun sync() = SuspendFunctionInvocationAdapter { kFunction, subscriber, args ->
+            CoroutineScope(Dispatchers.Default)
+                .launch { kFunction.callSuspend(subscriber, *args) }
+                .asCompletableFuture()
+        }
+    }
+
+    fun callSuspend(kFunction: KFunction<*>, subscriber: Any, vararg args: Any): CompletableFuture<*>
 }
