@@ -13,12 +13,6 @@ sealed interface MqttPublishContainer {
     val payload: ByteArray
 
     val value: Any
-
-    @JvmSynthetic
-    operator fun component1(): MqttTopic = topic
-
-    @JvmSynthetic
-    operator fun component2(): ByteArray = payload
 }
 
 /**

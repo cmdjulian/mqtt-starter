@@ -3,11 +3,15 @@ package de.smartsquare.starter.mqtt
 import com.fasterxml.jackson.core.JacksonException
 import com.fasterxml.jackson.databind.JsonMappingException
 import com.hivemq.client.mqtt.datatypes.MqttTopic
-import de.smartsquare.starter.mqtt.MqttHandler.AnnotatedMethodDelegate
+import com.hivemq.client.mqtt.datatypes.MqttTopicFilter
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.runBlocking
 import org.slf4j.LoggerFactory
+import org.springframework.util.ConcurrentLruCache
+import java.lang.invoke.MethodHandle
 import java.lang.invoke.MethodHandles
 import java.util.concurrent.ConcurrentHashMap
+import kotlin.reflect.KFunction
 import kotlin.reflect.full.callSuspend
 import kotlin.reflect.full.valueParameters
 import kotlin.reflect.jvm.jvmErasure
@@ -16,60 +20,108 @@ import kotlin.reflect.jvm.kotlinFunction
 /**
  * Class for consuming and forwarding messages to the correct subscriber.
  */
-class MqttHandler(
+open class MqttHandler(
     private val collector: MqttSubscriberCollector,
     private val adapter: MqttMessageAdapter,
     private val messageErrorHandler: MqttMessageErrorHandler,
+    subscriberTopicCacheSize: Int? = null,
 ) {
 
-    private val logger = LoggerFactory.getLogger(this::class.java)
-    private val subscriberCache = ConcurrentHashMap<MqttTopic, MqttSubscriberReference>(collector.subscribers.size)
-
-    private data class MqttSubscriberReference(
-        val subscriber: AnnotatedMethodDelegate,
-        val parameterTypes: List<Class<*>>,
-    )
-
-    private fun interface AnnotatedMethodDelegate {
+    /**
+     * Delegate for invoking a subscriber method.
+     */
+    private interface Subscriber {
+        val parameterTypes: List<Class<*>>
         fun invoke(vararg args: Any)
     }
+
+    private val logger = LoggerFactory.getLogger(this::class.java)
+
+    /**
+     * Cache for subscribers based on their topic. This is used to match incoming messages to the correct subscriber.
+     * The cache is thread-safe and uses an LRU strategy.
+     * The cache is initialized with a function that finds the correct subscriber for a given topic.
+     * This is used to match wildcard topics to the correct subscriber by its topic filter.
+     *
+     * Example:
+     * A subscriber registered for the topic "foo/+", after messages to "foo/bar" and "foo/baz" are received, the cache
+     * will contain two entries for the subscriber with the topic filter "foo/+":
+     * - "foo/bar" -> foo/+
+     * - "foo/baz" -> foo/+
+     *
+     * This can then be used to find the correct subscriber for a given topic. In that way we prevent the need to
+     * iterate over all subscribers for each message and create a delegate for each message topic. Especially for a
+     * lot of different topics this can be a performance improvement.
+     * The filter can be used to match the topic to the correct subscriber. via [subscriberCache]
+     */
+    private val topicToFilterCache = run {
+        val cacheSize = if (subscriberTopicCacheSize == null) {
+            collector.subscribers.size * 10
+        } else {
+            maxOf(subscriberTopicCacheSize, 0)
+        }
+
+        ConcurrentLruCache(cacheSize) { topic: MqttTopic ->
+            collector.subscribers.find { sub -> sub.filter.matches(topic) }
+                ?: error("No subscriber found for topic $topic")
+        }
+    }
+
+    /**
+     * Cache for subscribers based on their topic. This is used to match incoming messages to the correct subscriber.
+     * We know that the cache will never grow larger than the amount of subscribers, so we can use a simple
+     */
+    private val subscriberCache = ConcurrentHashMap<MqttTopicFilter, Subscriber>(collector.subscribers.size)
 
     /**
      * Handles a single [message]. The topic of the message is used to determine the correct subscriber which is then
      * invoked with parameters produced by the [MqttMessageAdapter].
      */
-    fun handle(message: MqttPublishContainer) {
-        val (topic, payload) = message
+    open fun handle(message: MqttPublishContainer) {
+        logger.trace("Received mqtt message on topic [{}] with payload {}", message.topic, message.payload)
 
-        logger.trace("Received mqtt message on topic [{}] with payload {}", topic, payload)
-
-        val (subscriber, parameterTypes) = getSubscriber(topic)
+        val subscriber = getSubscriber(message.topic)
 
         try {
-            subscriber.invoke(*Array(parameterTypes.size) { adapter.adapt(message, parameterTypes[it]) })
+            val args = Array(subscriber.parameterTypes.size) { adapter.adapt(message, subscriber.parameterTypes[it]) }
+            subscriber.invoke(*args)
         } catch (e: JsonMappingException) {
             messageErrorHandler.handle(
                 MqttMessageException(
-                    topic,
-                    payload,
-                    "Error while handling mqtt message on topic [$topic]: Failed to map payload to target class",
+                    message.topic,
+                    message.payload,
+                    "Error while handling mqtt message on topic [${message.topic}]: Failed to map payload to target " +
+                        "class",
                     e,
                 ),
             )
         } catch (e: JacksonException) {
             messageErrorHandler.handle(
                 MqttMessageException(
-                    topic,
-                    payload,
-                    "Error while handling mqtt message on topic [$topic]: Failed to parse payload",
+                    message.topic,
+                    message.payload,
+                    "Error while handling mqtt message on topic [${message.topic}]: Failed to parse payload",
                     e,
                 ),
             )
         } catch (e: Exception) {
             messageErrorHandler.handle(
-                MqttMessageException(topic, payload, "Error while handling mqtt message on topic [$topic]", e),
+                MqttMessageException(
+                    message.topic,
+                    message.payload,
+                    "Error while handling mqtt message on topic [${message.topic}]",
+                    e,
+                ),
             )
         }
+    }
+
+    protected fun invokeMethodHandle(handle: MethodHandle, bean: Any, vararg args: Any) {
+        handle.invokeWithArguments(bean, *args)
+    }
+
+    protected fun invokeSuspendFunction(kFunction: KFunction<*>, bean: Any, vararg args: Any) {
+        runBlocking(Dispatchers.Default) { kFunction.callSuspend(bean, *args) }
     }
 
     /**
@@ -80,19 +132,27 @@ class MqttHandler(
      * If the function is a suspend function, it is wrapped in a suspend call. For normal functions, a method handle is
      * created and cached.
      */
-    private fun getSubscriber(topic: MqttTopic): MqttSubscriberReference = subscriberCache.getOrPut(topic) {
-        val subscriber = collector.subscribers.find { it.topic.matches(topic) }
-            ?: error("No subscriber found for topic $topic")
-        val kFunction = subscriber.method.kotlinFunction
-        val parameterTypes = kFunction?.valueParameters?.map { it.type.jvmErasure.java }
-            ?: subscriber.method.parameterTypes.toList()
-        val delegate = if (kFunction?.isSuspend == true) {
-            AnnotatedMethodDelegate { args -> runBlocking { kFunction.callSuspend(subscriber.bean, *args) } }
-        } else {
-            val handle = MethodHandles.publicLookup().unreflect(subscriber.method)
-            AnnotatedMethodDelegate { args -> handle.invokeWithArguments(subscriber.bean, *args) }
-        }
+    private fun getSubscriber(topic: MqttTopic): Subscriber {
+        val subscriberInfo = topicToFilterCache[topic]
 
-        MqttSubscriberReference(delegate, parameterTypes)
+        return subscriberCache.computeIfAbsent(subscriberInfo.filter) { _ ->
+            val kFunction = subscriberInfo.method.kotlinFunction
+            val parameterTypes = kFunction?.valueParameters
+                ?.map { it.type.jvmErasure.java }
+                ?: subscriberInfo.method.parameterTypes.toList()
+
+            return@computeIfAbsent if (kFunction?.isSuspend == true) {
+                object : Subscriber {
+                    override val parameterTypes: List<Class<*>> = parameterTypes
+                    override fun invoke(vararg args: Any) = invokeSuspendFunction(kFunction, subscriberInfo.bean, *args)
+                }
+            } else {
+                val handle = MethodHandles.publicLookup().unreflect(subscriberInfo.method)
+                object : Subscriber {
+                    override val parameterTypes: List<Class<*>> = parameterTypes
+                    override fun invoke(vararg args: Any) = invokeMethodHandle(handle, subscriberInfo.bean, *args)
+                }
+            }
+        }
     }
 }

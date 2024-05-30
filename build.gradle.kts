@@ -27,6 +27,7 @@ dependencies {
     implementation("org.jetbrains.kotlin:kotlin-reflect")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-slf4j")
 
     implementation(platform("org.springframework.boot:spring-boot-dependencies:3.2.3"))
     implementation("org.springframework.boot:spring-boot")

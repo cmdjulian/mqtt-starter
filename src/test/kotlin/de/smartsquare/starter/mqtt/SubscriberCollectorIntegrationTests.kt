@@ -9,8 +9,8 @@ import org.springframework.context.annotation.Bean
 import org.springframework.context.annotation.Configuration
 import org.springframework.stereotype.Component
 
-@SpringBootTest(classes = [MqttSubscriberCollectorIntegrationTests.PostProcessorConfiguration::class])
-class MqttSubscriberCollectorIntegrationTests {
+@SpringBootTest(classes = [SubscriberCollectorIntegrationTests.PostProcessorConfiguration::class])
+class SubscriberCollectorIntegrationTests {
 
     @Autowired
     private lateinit var annotationCollector: MqttSubscriberCollector

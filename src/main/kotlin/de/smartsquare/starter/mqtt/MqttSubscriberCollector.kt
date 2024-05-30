@@ -26,10 +26,10 @@ class MqttSubscriberCollector(configProvider: ObjectProvider<MqttProperties>) : 
     /**
      * MultiMap of beans to its methods annotated with [MqttSubscribe] and the annotation itself.
      */
-    val subscribers: List<ResolvedMqttSubscriber>
+    val subscribers: List<MqttSubscriberInfo>
         get() = _subscribers
 
-    private val _subscribers = mutableListOf<ResolvedMqttSubscriber>()
+    private val _subscribers = mutableListOf<MqttSubscriberInfo>()
 
     override fun postProcessAfterInitialization(bean: Any, beanName: String): Any {
         val collectedSubscribers = bean.javaClass.methods
@@ -41,7 +41,7 @@ class MqttSubscriberCollector(configProvider: ObjectProvider<MqttProperties>) : 
                         MqttTopicFilter.of(annotation.topic)
                     }
 
-                    ResolvedMqttSubscriber(bean, method, topic, annotation.qos)
+                    MqttSubscriberInfo(bean, method, topic, annotation.qos)
                 }
             }
             .sortedBy { it.method.name }
@@ -60,5 +60,5 @@ class MqttSubscriberCollector(configProvider: ObjectProvider<MqttProperties>) : 
     /**
      * Data class representing a subscriber method annotated with [MqttSubscribe].
      */
-    data class ResolvedMqttSubscriber(val bean: Any, val method: Method, val topic: MqttTopicFilter, val qos: MqttQos)
+    data class MqttSubscriberInfo(val bean: Any, val method: Method, val filter: MqttTopicFilter, val qos: MqttQos)
 }

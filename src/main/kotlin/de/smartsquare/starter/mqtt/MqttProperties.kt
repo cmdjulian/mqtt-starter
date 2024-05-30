@@ -4,6 +4,7 @@ import com.hivemq.client.mqtt.mqtt5.message.connect.Mqtt5Connect
 import jakarta.validation.constraints.Max
 import jakarta.validation.constraints.Min
 import jakarta.validation.constraints.NotEmpty
+import jakarta.validation.constraints.PositiveOrZero
 import org.springframework.boot.context.properties.ConfigurationProperties
 import org.springframework.validation.annotation.Validated
 
@@ -82,6 +83,14 @@ data class MqttProperties(
     @get:Min(0)
     @get:Max(Mqtt5Connect.NO_SESSION_EXPIRY)
     val sessionExpiry: Long = Mqtt5Connect.DEFAULT_SESSION_EXPIRY_INTERVAL,
+
+    /**
+     * The cache size for the subscriber topic cache used to match incoming messages to the correct subscriber.
+     * If not set, the cache will be created with a max size of the amount of subscribers times 10.
+     * If set to 0, the cache will be disabled.
+     */
+    @get:PositiveOrZero
+    val subscriberTopicCacheSize: Int? = null,
 ) {
 
     /**

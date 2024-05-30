@@ -58,7 +58,7 @@ class Mqtt3Connector(
     private fun subscribe(): CompletableFuture<*> {
         val subscriptions = collector.subscribers.map { subscriber ->
             client.subscribeWith()
-                .topicFilter(subscriber.topic)
+                .topicFilter(subscriber.filter)
                 .qos(subscriber.qos)
                 .callback { handler.handle(Mqtt3PublishContainer(it)) }
                 .send()
@@ -121,7 +121,7 @@ class Mqtt5Connector(
     private fun subscribe(): CompletableFuture<*> {
         val subscriptions = collector.subscribers.map { subscriber ->
             client.subscribeWith()
-                .topicFilter(subscriber.topic)
+                .topicFilter(subscriber.filter)
                 .qos(subscriber.qos)
                 .callback { handler.handle(Mqtt5PublishContainer(it)) }
                 .send()
