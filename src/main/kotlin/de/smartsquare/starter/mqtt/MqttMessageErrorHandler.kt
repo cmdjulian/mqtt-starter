@@ -1,5 +1,6 @@
 package de.smartsquare.starter.mqtt
 
+import org.slf4j.Logger
 import org.slf4j.LoggerFactory
 
 /**
@@ -8,7 +9,7 @@ import org.slf4j.LoggerFactory
  */
 open class MqttMessageErrorHandler {
 
-    private val logger = LoggerFactory.getLogger(this::class.java)
+    protected val logger: Logger = LoggerFactory.getLogger(this::class.java)
 
     /**
      * Handles the given [error] that occurred during the delivery of an MQTT message.

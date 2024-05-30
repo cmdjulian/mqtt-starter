@@ -20,12 +20,23 @@ import kotlin.reflect.jvm.kotlinFunction
 /**
  * Class for consuming and forwarding messages to the correct subscriber.
  */
-open class MqttHandler(
+fun interface MqttHandler {
+    /**
+     * Handles a single [message]. The topic of the message is used to determine the correct subscriber which is then
+     * invoked with parameters produced by the [MqttMessageAdapter].
+     */
+    fun handle(message: MqttPublishContainer)
+}
+
+/**
+ * Class for consuming and forwarding messages to the correct subscriber.
+ */
+open class MqttHandlerImpl(
     private val collector: MqttSubscriberCollector,
     private val adapter: MqttMessageAdapter,
     private val messageErrorHandler: MqttMessageErrorHandler,
     subscriberTopicCacheSize: Int? = null,
-) {
+) : MqttHandler {
 
     /**
      * Delegate for invoking a subscriber method.
@@ -77,7 +88,7 @@ open class MqttHandler(
      * Handles a single [message]. The topic of the message is used to determine the correct subscriber which is then
      * invoked with parameters produced by the [MqttMessageAdapter].
      */
-    open fun handle(message: MqttPublishContainer) {
+    override fun handle(message: MqttPublishContainer) {
         logger.trace("Received mqtt message on topic [{}] with payload {}", message.topic, message.payload)
 
         val subscriber = getSubscriber(message.topic)

@@ -36,7 +36,7 @@ class MqttHandlerTest {
 
         val collector = TestMqttSubscriberCollector(subscriber)
         collector.subscribers.size shouldBeEqualTo 2
-        val handler = MqttHandler(collector, adapter, messageErrorHandler)
+        val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
         val publish = Mqtt5Publish.builder().topic("test").payload("1".encodeToByteArray()).build()
         handler.handle(Mqtt5PublishContainer(publish))
@@ -58,7 +58,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val publish = Mqtt5Publish.builder().topic("test").payload("1".encodeToByteArray()).build()
             handler.handle(Mqtt5PublishContainer(publish))
@@ -78,7 +78,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val publish = Mqtt5Publish.builder().topic("test").payload("1".encodeToByteArray()).build()
             handler.handle(Mqtt5PublishContainer(publish))
@@ -98,7 +98,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val publish = Mqtt5Publish.builder().topic("test").payload("1".encodeToByteArray()).build()
             handler.handle(Mqtt5PublishContainer(publish))
@@ -118,7 +118,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val obj = TemperatureMessage(1)
             val publish = Mqtt5Publish.builder().topic("test").payload(mapper.writeValueAsBytes(obj)).build()
@@ -142,7 +142,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val publish = Mqtt5Publish.builder().topic("test").payload("1".encodeToByteArray()).build()
             handler.handle(Mqtt5PublishContainer(publish))
@@ -162,7 +162,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val publish = Mqtt5Publish.builder().topic("test").payload("1".encodeToByteArray()).build()
             handler.handle(Mqtt5PublishContainer(publish))
@@ -182,7 +182,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val publish = Mqtt5Publish.builder().topic("test").payload("1".encodeToByteArray()).build()
             handler.handle(Mqtt5PublishContainer(publish))
@@ -202,7 +202,7 @@ class MqttHandlerTest {
             }
 
             val collector = TestMqttSubscriberCollector(subscriber)
-            val handler = MqttHandler(collector, adapter, messageErrorHandler)
+            val handler = MqttHandlerImpl(collector, adapter, messageErrorHandler)
 
             val obj = TemperatureMessage(1)
             val publish = Mqtt5Publish.builder().topic("test").payload(mapper.writeValueAsBytes(obj)).build()

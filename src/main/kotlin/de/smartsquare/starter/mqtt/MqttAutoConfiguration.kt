@@ -144,7 +144,7 @@ class MqttAutoConfiguration {
         adapter: MqttMessageAdapter,
         messageErrorHandler: MqttMessageErrorHandler,
         properties: MqttProperties,
-    ): MqttHandler = MqttHandler(collector, adapter, messageErrorHandler, properties.subscriberTopicCacheSize)
+    ): MqttHandler = MqttHandlerImpl(collector, adapter, messageErrorHandler, properties.subscriberTopicCacheSize)
 
     /**
      * Returns a default mqtt message error handler.
@@ -162,7 +162,7 @@ class MqttAutoConfiguration {
         collector: MqttSubscriberCollector,
         handler: MqttHandler,
         config: MqttProperties,
-    ): Mqtt3Connector {
+    ): MqttConnector {
         return Mqtt3Connector(client, collector, handler, config)
     }
 
@@ -173,7 +173,7 @@ class MqttAutoConfiguration {
         collector: MqttSubscriberCollector,
         handler: MqttHandler,
         config: MqttProperties,
-    ): Mqtt5Connector {
+    ): MqttConnector {
         return Mqtt5Connector(client, collector, handler, config)
     }
 

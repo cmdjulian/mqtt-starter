@@ -1,2 +1,2 @@
 de.smartsquare.starter.mqtt.MqttAutoConfiguration
-de.smartsquare.starter.mqtt.MqttObservabilityAutoConfiguration
+de.smartsquare.starter.mqtt.tracing.MqttObservabilityAutoConfiguration
