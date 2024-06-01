@@ -9,7 +9,7 @@ import org.slf4j.LoggerFactory
  */
 open class MqttMessageErrorHandler {
 
-    protected val logger: Logger = LoggerFactory.getLogger(this::class.java)
+    private val logger: Logger = LoggerFactory.getLogger(this::class.java)
 
     /**
      * Handles the given [error] that occurred during the delivery of an MQTT message.

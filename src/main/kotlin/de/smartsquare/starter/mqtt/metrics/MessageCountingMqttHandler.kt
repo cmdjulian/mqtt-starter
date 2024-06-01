@@ -7,7 +7,7 @@ import io.micrometer.core.instrument.MeterRegistry
 /**
  * Mqtt message counting client that counts the messages and delegates them to the given handler.
  */
-class MessageCountingMqttHandler(private val delegate: MqttHandler, registry: MeterRegistry) : MqttHandler by delegate {
+class MessageCountingMqttHandler(delegate: MqttHandler, registry: MeterRegistry) : MqttHandler(delegate) {
 
     private val messageCount = registry.counter("mqtt.messages.count")
     private val messageSizeCount = registry.counter("mqtt.messages.bytes.count")
@@ -15,6 +15,6 @@ class MessageCountingMqttHandler(private val delegate: MqttHandler, registry: Me
     override fun handle(message: MqttPublishContainer) {
         messageCount.increment()
         messageSizeCount.increment(message.payload.size.toDouble())
-        delegate.handle(message)
+        super.handle(message)
     }
 }

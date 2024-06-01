@@ -139,12 +139,13 @@ class MqttAutoConfiguration {
     fun fallbackObjectMapper(): ObjectMapper = jacksonObjectMapper().findAndRegisterModules()
 
     @Bean
+    @ConditionalOnMissingBean
     fun mqttHandler(
         collector: MqttSubscriberCollector,
         adapter: MqttMessageAdapter,
         messageErrorHandler: MqttMessageErrorHandler,
         properties: MqttProperties,
-    ): MqttHandler = MqttHandlerImpl(collector, adapter, messageErrorHandler, properties.subscriberTopicCacheSize)
+    ): MqttHandler = MqttHandler(collector, adapter, messageErrorHandler, properties.subscriberTopicCacheSize)
 
     /**
      * Returns a default mqtt message error handler.
