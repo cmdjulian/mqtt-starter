@@ -5,7 +5,9 @@ import de.smartsquare.starter.mqtt.MqttHandler
 import de.smartsquare.starter.mqtt.MqttMessageAdapter
 import de.smartsquare.starter.mqtt.MqttMessageErrorHandler
 import de.smartsquare.starter.mqtt.MqttSubscriberCollector
+import io.micrometer.observation.Observation
 import io.micrometer.observation.ObservationRegistry
+import org.springframework.boot.actuate.autoconfigure.metrics.CompositeMeterRegistryAutoConfiguration
 import org.springframework.boot.actuate.autoconfigure.observation.ObservationAutoConfiguration
 import org.springframework.boot.actuate.autoconfigure.tracing.ConditionalOnEnabledTracing
 import org.springframework.boot.autoconfigure.AutoConfiguration
@@ -17,12 +19,18 @@ import org.springframework.context.annotation.Bean
  * Autoconfiguration for mqtt observability which contributes metrics and tracing to the mqtt client.
  */
 @ConditionalOnEnabledTracing
-@ConditionalOnClass(ObservationRegistry::class)
-@AutoConfiguration(after = [ObservationAutoConfiguration::class, MqttAutoConfiguration::class])
+@ConditionalOnClass(Observation::class)
+@ConditionalOnBean(ObservationRegistry::class)
+@AutoConfiguration(
+    after = [
+        ObservationAutoConfiguration::class,
+        CompositeMeterRegistryAutoConfiguration::class,
+        MqttAutoConfiguration::class,
+    ],
+)
 class MqttObservabilityAutoConfiguration {
     @Bean
     @ConditionalOnBean(
-        ObservationRegistry::class,
         MqttSubscriberCollector::class,
         MqttMessageAdapter::class,
         MqttMessageErrorHandler::class,
